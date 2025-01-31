@@ -1,7 +1,7 @@
 import baostock as bs
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 
 # 登录baostock
 bs.login()
@@ -49,15 +49,13 @@ def get_stock_data(stock_code, start_date, end_date):
         'PB': avg_pb
     }
 
-# 获取训练数据 (2023 和 2024 年数据)
-stock_list = ["sh.600000", "sz.000001"]  # 示例股票代码
-train_data_2023 = pd.DataFrame([get_stock_data(stock, "2023-01-01", "2023-12-31") for stock in stock_list])
-train_data_2024 = pd.DataFrame([get_stock_data(stock, "2024-01-01", "2024-12-31") for stock in stock_list])
-train_data = pd.concat([train_data_2023, train_data_2024], ignore_index=True)
+# 获取训练数据
+stock_list = ["sh.600000", "sz.000001"]
+train_data = pd.DataFrame([get_stock_data(stock, "2023-01-01", "2023-12-31") for stock in stock_list])
 
-# 获取测试数据 (2024 年数据)
+# 获取测试数据
 future_stock_list = ["sh.601398", "sz.000001"]
-test_data_2024 = pd.DataFrame([get_stock_data(stock, "2023-01-01", "2024-12-31") for stock in future_stock_list])
+test_data = pd.DataFrame([get_stock_data(stock, "2024-01-01", "2024-12-31") for stock in future_stock_list])
 
 # 关闭baostock
 bs.logout()
@@ -69,20 +67,20 @@ y_train = train_data['Cumulative Return']
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 
-model = LinearRegression()
+model = RandomForestRegressor(n_estimators=100, random_state=42)  # 使用100棵树的随机森林
 model.fit(X_train_scaled, y_train)
 
-# 模型预测 (使用 2024 年特征预测 2025 年收益率)
-X_test = test_data_2024[['PE', 'PB']]
+# 模型预测
+X_test = test_data[['PE', 'PB']]
 X_test_scaled = scaler.transform(X_test)
-test_data_2024['Predicted Cumulative Return (2025)'] = model.predict(X_test_scaled)
+test_data['Predicted Cumulative Return'] = model.predict(X_test_scaled)
 
 # 筛选高收益股票
-selected_stocks = test_data_2024[test_data_2024['Predicted Cumulative Return (2025)'] > 0.1]
+selected_stocks = test_data[test_data['Predicted Cumulative Return'] > 0.1]
 
 # 输出结果
 print("All test stock predictions:")
-print(test_data_2024)
+print(test_data)
 
-print("\nSelected stocks with high predicted cumulative:")
+print("\nSelected stocks with high predicted cumulative return:")
 print(selected_stocks)
